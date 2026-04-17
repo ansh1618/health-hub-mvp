@@ -8,33 +8,26 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 
 const doctorNav = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/doctor-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/records/upload", label: "Upload Record", icon: Upload },
   { path: "/diagnosis", label: "AI Diagnosis", icon: Stethoscope },
   { path: "/reports", label: "Report Analyzer", icon: FileText },
-  { path: "/chat", label: "AI Assistant", icon: MessageSquare },
-];
-const adminNav = [
-  { path: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
-  { path: "/records/upload", label: "Upload Record", icon: Upload },
-  { path: "/diagnosis", label: "AI Diagnosis", icon: Stethoscope },
-  { path: "/reports", label: "Reports", icon: FileText },
   { path: "/chat", label: "AI Assistant", icon: MessageSquare },
 ];
 const patientNav = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/patient-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/records/upload", label: "Upload Record", icon: Upload },
   { path: "/diagnosis", label: "AI Diagnosis", icon: Stethoscope },
-  { path: "/reports", label: "Report Analyzer", icon: FileText },
+  { path: "/reports", label: "My Reports", icon: FileText },
   { path: "/chat", label: "AI Assistant", icon: MessageSquare },
 ];
 
 const roleConfig: Record<string, { nav: typeof doctorNav; label: string; icon: React.ElementType; badgeClass: string }> = {
   doctor: { nav: doctorNav, label: "Doctor", icon: Stethoscope, badgeClass: "text-blue-400 bg-blue-950/50 border-blue-900" },
-  admin:  { nav: adminNav,  label: "Admin",  icon: ShieldCheck, badgeClass: "text-purple-400 bg-purple-950/50 border-purple-900" },
+  admin:  { nav: doctorNav, label: "Admin",  icon: ShieldCheck, badgeClass: "text-purple-400 bg-purple-950/50 border-purple-900" },
   patient:{ nav: patientNav,label: "Patient", icon: HeartPulse, badgeClass: "text-emerald-400 bg-emerald-950/50 border-emerald-900" },
 };
+
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
