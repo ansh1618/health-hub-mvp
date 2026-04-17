@@ -229,6 +229,24 @@ export default function Reports() {
         <AnimatePresence>
           {selectedReport && !loading && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              {/* Language selector — Gemini-powered translation */}
+              <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+                <Languages className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-xs font-medium">Read in:</span>
+                <Select value={language} onValueChange={translateReport} disabled={translating}>
+                  <SelectTrigger className="h-8 text-xs w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((l) => (
+                      <SelectItem key={l.code} value={l.code} className="text-xs">{l.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {translating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+                <span className="ml-auto text-[10px] text-muted-foreground">via Gemini</span>
+              </div>
+
               <div className="rounded-xl border border-border bg-card p-5">
                 <h3 className="text-sm font-semibold mb-1">{selectedReport.title}</h3>
                 <p className="text-xs text-muted-foreground">{selectedReport.summary}</p>
