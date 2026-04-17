@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, Loader2, CheckCircle, AlertTriangle, Brain, Sparkles, User as UserIcon } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle, AlertTriangle, Brain, Sparkles, User as UserIcon, Camera, X } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,11 +70,71 @@ export default function RecordUpload() {
   const [result, setResult] = useState<NLPResult | null>(null);
   const [prediction, setPrediction] = useState<PredictResult | null>(null);
   const [saved, setSaved] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const progressValue = step === "extracting" ? 40 : step === "predicting" ? 75 : step === "done" ? 100 : 0;
   const progressLabel = step === "extracting" ? "Step 1/2 — Extracting medical data with Gemini AI..." : step === "predicting" ? "Step 2/2 — Running risk prediction & AI recommendations..." : "";
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please upload an image (JPG, PNG, HEIC, etc.)", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Max 10 MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setImagePreview(dataUrl);
+      const base64 = dataUrl.split(",")[1];
+      setLoading(true);
+      setResult(null);
+      setPrediction(null);
+      setSaved(false);
+      setStep("extracting");
+      try {
+        const { data, error } = await supabase.functions.invoke("extract-image", {
+          body: { image_base64: base64, mime_type: file.type },
+        });
+        if (error) throw error;
+        const parsed = data?.result as NLPResult & { raw_ocr_text?: string };
+        if (!parsed) throw new Error("No extraction result returned");
+        setResult(parsed);
+        setRawText(parsed.raw_ocr_text || "");
+        setStep("predicting");
+        const predictInput = {
+          age: parsed.age || 50,
+          gender: parsed.gender || "Unknown",
+          blood_pressure_systolic: 120,
+          blood_pressure_diastolic: 80,
+          glucose_level: parseFloat(parsed.lab_values?.["Fasting Glucose"]?.value || "100"),
+          heart_rate: parseInt(parsed.vitals?.HR || "72"),
+          symptoms: parsed.chief_complaint || "Image upload",
+          family_history: parsed.family_history,
+          medications: parsed.medications,
+        };
+        const { data: predData } = await supabase.functions.invoke("predict", { body: predictInput });
+        if (predData) setPrediction(predData as PredictResult);
+        setStep("done");
+        toast({ title: "Image processed!", description: "Gemini Vision extracted the document." });
+      } catch (err: any) {
+        console.error("Vision extract error:", err);
+        toast({ title: "Vision failed", description: err.message || "Could not process image", variant: "destructive" });
+        setStep("idle");
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const handleExtract = async () => {
     if (!rawText.trim()) return;
@@ -189,6 +249,35 @@ export default function RecordUpload() {
             </Button>
           </div>
         </motion.div>
+
+        {/* Gemini Vision: image upload */}
+        <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-5">
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Camera className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold">Upload prescription / lab report photo</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+                Powered by <span className="font-medium text-primary">Gemini Vision</span> — auto-extracts text & data from images.
+              </p>
+              {imagePreview ? (
+                <div className="relative inline-block">
+                  <img src={imagePreview} alt="Uploaded document" className="max-h-32 rounded-lg border border-border" />
+                  <button onClick={() => setImagePreview(null)} className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button onClick={() => fileInputRef.current?.click()} disabled={loading} variant="outline" size="sm" className="text-xs">
+                  <Camera className="w-3.5 h-3.5 mr-1.5" />
+                  Choose image
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Input */}
         <div className="rounded-xl border border-border bg-card p-5">

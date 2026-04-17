@@ -1,11 +1,24 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Loader2, CheckCircle, AlertTriangle, FileUp, X, Beaker } from "lucide-react";
+import { FileText, Loader2, CheckCircle, AlertTriangle, FileUp, X, Beaker, Languages } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { callAI } from "@/lib/ai";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const LANGUAGES = [
+  { code: "English", label: "🇬🇧 English" },
+  { code: "Hindi", label: "🇮🇳 हिन्दी" },
+  { code: "Spanish", label: "🇪🇸 Español" },
+  { code: "French", label: "🇫🇷 Français" },
+  { code: "Mandarin Chinese", label: "🇨🇳 中文" },
+  { code: "Arabic", label: "🇸🇦 العربية" },
+  { code: "Bengali", label: "🇧🇩 বাংলা" },
+  { code: "Tamil", label: "🇮🇳 தமிழ்" },
+];
 
 interface ReportAnalysis {
   title: string;
@@ -59,23 +72,54 @@ Currently on COPD triple therapy, started IV Piperacillin-Tazobactam.`,
 
 export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<ReportAnalysis | null>(null);
+  const [originalReport, setOriginalReport] = useState<ReportAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [language, setLanguage] = useState("English");
   const [reportText, setReportText] = useState("");
   const [fileName, setFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const translateReport = async (target: string) => {
+    setLanguage(target);
+    if (!originalReport) return;
+    if (target === "English") {
+      setSelectedReport(originalReport);
+      return;
+    }
+    setTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("translate", {
+        body: { text: JSON.stringify(originalReport), target_language: target },
+      });
+      if (error) throw error;
+      const cleaned = (data.translated_text as string).replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+      setSelectedReport(JSON.parse(cleaned) as ReportAnalysis);
+      toast({ title: `Translated to ${target}` });
+    } catch (e: any) {
+      toast({ title: "Translation failed", description: e.message, variant: "destructive" });
+      setLanguage("English");
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const analyzeText = async (text: string) => {
     if (!text.trim()) return;
     setLoading(true);
     setSelectedReport(null);
+    setOriginalReport(null);
+    setLanguage("English");
     try {
       const response = await callAI(
         [{ role: "user", content: `Analyze this medical report and provide findings:\n\n${text}` }],
         "report"
       );
       const jsonStr = response.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-      setSelectedReport(JSON.parse(jsonStr) as ReportAnalysis);
+      const parsed = JSON.parse(jsonStr) as ReportAnalysis;
+      setSelectedReport(parsed);
+      setOriginalReport(parsed);
     } catch (e) {
       console.error("Report analysis error:", e);
       toast({ title: "Analysis Failed", description: e instanceof Error ? e.message : "Unable to analyze report", variant: "destructive" });
