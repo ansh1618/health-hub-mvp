@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { HeartPulse, Activity, TrendingUp, Sparkles, Loader2, Upload, FileText } from "lucide-react";
+import { HeartPulse, TrendingUp, Sparkles, Loader2, Upload, FileText, Save } from "lucide-react";
 import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { predictRisk, type RiskLevel } from "@/lib/riskPrediction";
 import { generateRecommendations } from "@/services/aiService";
+import { supabase } from "@/integrations/supabase/client";
 
 const levelStyles: Record<RiskLevel, { bg: string; text: string; ring: string }> = {
   Low: { bg: "bg-emerald-500/10", text: "text-emerald-500", ring: "ring-emerald-500/30" },
@@ -28,6 +29,7 @@ export default function PatientDashboard() {
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const risk = useMemo(
     () =>
@@ -41,6 +43,40 @@ export default function PatientDashboard() {
   );
 
   const styles = levelStyles[risk.level];
+
+  const saveVitals = async () => {
+    if (!user) {
+      toast({ title: "Not signed in", description: "Please sign in again.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const vitals = {
+        systolicBP: Number(systolic),
+        diastolicBP: Number(diastolic),
+        glucose: Number(glucose),
+        heartRate: Number(hr),
+        recorded_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("patient_records").insert({
+        created_by: user.id,
+        linked_patient_user_id: user.id,
+        patient_name: user.email ?? "Patient",
+        vitals,
+        risk_scores: {
+          level: risk.level,
+          score: risk.score,
+          explanation: risk.explanation,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "Saved", description: "Your vitals and risk score were shared with your care team." });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const askGemini = async () => {
     setAiLoading(true);
@@ -113,10 +149,16 @@ export default function PatientDashboard() {
                 <Input value={hr} onChange={(e) => setHr(e.target.value)} type="number" className="mt-1" />
               </div>
             </div>
-            <Button onClick={askGemini} disabled={aiLoading} className="w-full gradient-primary text-primary-foreground border-0">
-              {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-              Get AI suggestions
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button onClick={saveVitals} disabled={saving} variant="outline" className="w-full">
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save & share with doctor
+              </Button>
+              <Button onClick={askGemini} disabled={aiLoading} className="w-full gradient-primary text-primary-foreground border-0">
+                {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                Get AI suggestions
+              </Button>
+            </div>
           </div>
         </div>
 
