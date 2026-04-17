@@ -13,8 +13,7 @@ const features = [
 
 const roles = [
   { icon: Stethoscope, label: "Doctor", desc: "Full clinical access — diagnose, predict, and monitor", color: "text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-950 dark:border-blue-900" },
-  { icon: ShieldCheck, label: "Admin", desc: "Hospital-wide oversight, user management & analytics", color: "text-purple-600 bg-purple-50 border-purple-100 dark:bg-purple-950 dark:border-purple-900" },
-  { icon: User, label: "Patient", desc: "View your own records, risk scores & health summary", color: "text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-950 dark:border-emerald-900" },
+  { icon: User, label: "Patient", desc: "View your own records, risk score and AI suggestions", color: "text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-950 dark:border-emerald-900" },
 ];
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };

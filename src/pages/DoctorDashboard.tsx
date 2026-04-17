@@ -137,7 +137,7 @@ export default function DoctorDashboard() {
           ))}
         </div>
 
-        <PatientDetailModal patient={selectedPatient} open={modalOpen} onOpenChange={setModalOpen} />
+        <PatientDetailModal patient={selectedPatient} open={modalOpen} onClose={() => setModalOpen(false)} />
       </div>
     </DashboardLayout>
   );
