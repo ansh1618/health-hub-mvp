@@ -12,6 +12,7 @@ import { patients, type RiskLevel, type Patient } from "@/data/mockPatients";
 import { useAuth } from "@/hooks/useAuth";
 import { generateRecommendations } from "@/services/aiService";
 import { useToast } from "@/hooks/use-toast";
+import LivePatientList from "@/components/dashboard/LivePatientList";
 
 export default function DoctorDashboard() {
   const [filter, setFilter] = useState<RiskLevel | "all">("all");
@@ -99,7 +100,9 @@ export default function DoctorDashboard() {
           </motion.div>
         )}
 
-        {/* Stats */}
+        {/* Real patient records from Supabase */}
+        <LivePatientList />
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Total Patients" value={String(patients.length)} icon={Users} />
           <StatCard label="Critical" value={String(criticalCount)} icon={AlertTriangle} accent="destructive" />

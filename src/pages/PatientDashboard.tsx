@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { predictRisk, type RiskLevel } from "@/lib/riskPrediction";
 import { generateRecommendations } from "@/services/aiService";
 import { supabase } from "@/integrations/supabase/client";
+import VitalsHistoryChart from "@/components/dashboard/VitalsHistoryChart";
+import DoctorNotesPanel from "@/components/dashboard/DoctorNotesPanel";
 
 const levelStyles: Record<RiskLevel, { bg: string; text: string; ring: string }> = {
   Low: { bg: "bg-emerald-500/10", text: "text-emerald-500", ring: "ring-emerald-500/30" },
@@ -190,6 +192,14 @@ export default function PatientDashboard() {
               This is AI-generated and not a substitute for medical advice.
             </p>
           </motion.div>
+        )}
+
+        {/* History chart + doctor notes */}
+        {user && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <VitalsHistoryChart userId={user.id} />
+            <DoctorNotesPanel userId={user.id} />
+          </div>
         )}
 
         {/* Quick actions */}

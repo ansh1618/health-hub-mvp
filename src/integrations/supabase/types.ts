@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinical_notes: {
+        Row: {
+          created_at: string
+          doctor_name: string | null
+          doctor_user_id: string
+          id: string
+          note: string
+          patient_record_id: string
+          patient_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_name?: string | null
+          doctor_user_id: string
+          id?: string
+          note: string
+          patient_record_id: string
+          patient_user_id: string
+        }
+        Update: {
+          created_at?: string
+          doctor_name?: string | null
+          doctor_user_id?: string
+          id?: string
+          note?: string
+          patient_record_id?: string
+          patient_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_patient_record_id_fkey"
+            columns: ["patient_record_id"]
+            isOneToOne: false
+            referencedRelation: "patient_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_records: {
         Row: {
           age: number | null
