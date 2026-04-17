@@ -1,4 +1,4 @@
-// Gemini AI edge function — uses GEMINI_API_KEY (Google AI Studio).
+// Gemini AI edge function — routed through Lovable AI Gateway (no user API key needed).
 // Receives { task, prompt, context } from the client and returns { text }.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -30,9 +30,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "GEMINI_API_KEY is not configured" }), {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -53,31 +53,44 @@ serve(async (req) => {
       ? `${prompt}\n\nContext (JSON):\n${JSON.stringify(body.context, null, 2)}`
       : prompt;
 
-    // Direct Google Generative Language API — gemini-2.0-flash is current & fast.
-    const model = "gemini-2.0-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-    const upstream = await fetch(url, {
+    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        systemInstruction: { role: "system", parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: userText }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 800 },
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userText },
+        ],
       }),
     });
 
     if (!upstream.ok) {
+      if (upstream.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited. Please try again shortly." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (upstream.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const errText = await upstream.text();
       console.error("[gemini-ai] upstream", upstream.status, errText);
       return new Response(
-        JSON.stringify({ error: `Gemini API error (${upstream.status}): ${errText.slice(0, 200)}` }),
+        JSON.stringify({ error: `AI gateway error (${upstream.status})` }),
         { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const data = await upstream.json();
-    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "";
+    const text = data?.choices?.[0]?.message?.content ?? "";
 
     return new Response(JSON.stringify({ text, raw: data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
