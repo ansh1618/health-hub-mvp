@@ -1,19 +1,29 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Mail, Lock, Loader2, Stethoscope, ShieldCheck, User } from "lucide-react";
+import { Brain, Mail, Lock, Loader2, Stethoscope, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
-type RoleTab = "doctor" | "admin" | "patient";
+type RoleTab = "doctor" | "patient";
 
 const roles = [
-  { id: "doctor" as RoleTab, label: "Doctor", icon: Stethoscope, color: "text-blue-600", description: "Access patient records, AI diagnosis & clinical decision tools", demoEmail: "doctor@medimind.ai", demoPass: "demo123456" },
-  { id: "admin" as RoleTab, label: "Admin", icon: ShieldCheck, color: "text-purple-600", description: "Manage hospital workflows, users & system analytics", demoEmail: "admin@medimind.ai", demoPass: "demo123456" },
-  { id: "patient" as RoleTab, label: "Patient", icon: User, color: "text-emerald-600", description: "View your health records and personal risk summary", demoEmail: "patient@medimind.ai", demoPass: "demo123456" },
+  {
+    id: "doctor" as const,
+    label: "Doctor",
+    icon: Stethoscope,
+    color: "text-blue-600",
+    description: "Access patient records, AI diagnosis & clinical decision tools",
+  },
+  {
+    id: "patient" as const,
+    label: "Patient",
+    icon: User,
+    color: "text-emerald-600",
+    description: "View your health records, risk score and AI suggestions",
+  },
 ];
 
 export default function Login() {
@@ -22,10 +32,13 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const selectedRole = roles.find((r) => r.id === activeRole)!;
+
+  const goToDashboard = (role: RoleTab) => {
+    navigate(role === "doctor" ? "/doctor-dashboard" : "/patient-dashboard", { replace: true });
+  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,57 +46,45 @@ export default function Login() {
     setLoading(true);
     try {
       if (isSignUp) {
-        const { data: signUpData, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin, data: { role: activeRole } },
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: { role: activeRole }, // server trigger reads this
+          },
         });
         if (error) throw error;
-
-        // Update role if not default patient
-        if (signUpData.user && activeRole !== "patient") {
-          await supabase
-            .from("user_roles")
-            .update({ role: activeRole })
-            .eq("user_id", signUpData.user.id);
-        }
-
-        toast({ title: "Account created!", description: `Signed up as ${activeRole}. Please check your email to verify, then sign in.` });
+        toast({
+          title: "Account created",
+          description: `Signed up as ${activeRole}. You can sign in now.`,
+        });
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/dashboard");
+        // Pull role from DB (don't trust the tab) and route accordingly
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const { data: roleRows } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userData.user.id);
+          const dbRole = roleRows?.[0]?.role as RoleTab | "admin" | undefined;
+          if (dbRole === "doctor" || dbRole === "admin") goToDashboard("doctor");
+          else goToDashboard("patient");
+        }
       }
-    } catch (e: any) {
-      toast({ title: "Auth Error", description: e.message, variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Auth error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + "/dashboard",
-      });
-      if (result.error) {
-        toast({ title: "Google Sign-In failed", description: String(result.error), variant: "destructive" });
-        return;
-      }
-      if (result.redirected) return;
-      navigate("/dashboard");
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left branding panel */}
+      {/* Left branding */}
       <div className="hidden lg:flex flex-col justify-between w-[400px] bg-sidebar px-10 py-12 shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-12">
@@ -99,10 +100,15 @@ export default function Login() {
             AI-powered healthcare for modern hospitals
           </h2>
           <p className="text-sm text-sidebar-foreground/60 leading-relaxed mb-10">
-            Analyze patient records, predict multi-disease health risks, and support clinical decisions — built for Indian healthcare.
+            Predict risks, analyze records, and support clinical decisions — powered by Google Gemini.
           </p>
           <div className="space-y-4">
-            {["Multi-disease risk prediction", "FHIR-aligned data structures", "Role-based access control", "SDG 3: Good Health & Well-being"].map((f) => (
+            {[
+              "Multi-disease risk prediction",
+              "Gemini-powered AI diagnosis",
+              "Role-based access (Doctor & Patient)",
+              "Secure profiles & records",
+            ].map((f) => (
               <div key={f} className="flex items-center gap-3">
                 <div className="w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
                 <span className="text-xs text-sidebar-foreground/60">{f}</span>
@@ -110,13 +116,12 @@ export default function Login() {
             ))}
           </div>
         </div>
-        <p className="text-[11px] text-sidebar-foreground/30">MediMind AI · Google Solution Challenge 2026</p>
+        <p className="text-[11px] text-sidebar-foreground/30">MediMind AI · Hackathon MVP</p>
       </div>
 
-      {/* Right form panel */}
+      {/* Right form */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-          {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Brain className="w-5 h-5 text-primary-foreground" />
@@ -125,26 +130,37 @@ export default function Login() {
           </div>
 
           <div className="mb-6">
-            <h2 className="text-xl font-bold tracking-tight">{isSignUp ? "Create your account" : "Sign in to your account"}</h2>
+            <h2 className="text-xl font-bold tracking-tight">
+              {isSignUp ? "Create your account" : "Sign in to your account"}
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">Select your role to continue</p>
           </div>
 
-          {/* Role tabs */}
-          <div className="grid grid-cols-3 gap-2 mb-5">
+          {/* Role selector — exactly 2 options */}
+          <div className="grid grid-cols-2 gap-3 mb-5">
             {roles.map((role) => {
               const Icon = role.icon;
               const isActive = activeRole === role.id;
               return (
-                <button key={role.id} onClick={() => setActiveRole(role.id)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all ${isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/30 hover:bg-muted/40"}`}>
-                  <Icon className={`w-5 h-5 ${isActive ? role.color : "text-muted-foreground"}`} />
-                  <span className={`text-xs font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{role.label}</span>
+                <button
+                  key={role.id}
+                  type="button"
+                  onClick={() => setActiveRole(role.id)}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all ${
+                    isActive
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border bg-card hover:border-primary/30 hover:bg-muted/40"
+                  }`}
+                >
+                  <Icon className={`w-6 h-6 ${isActive ? role.color : "text-muted-foreground"}`} />
+                  <span className={`text-sm font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                    {role.label}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Role description */}
           <div className="mb-5 px-3 py-2 rounded-lg bg-muted/50 border border-border">
             <p className="text-xs text-muted-foreground">
               <span className={`font-medium ${selectedRole.color}`}>{selectedRole.label}: </span>
@@ -153,42 +169,39 @@ export default function Login() {
           </div>
 
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            {/* Google */}
-            <Button onClick={handleGoogleSignIn} variant="outline" className="w-full" disabled={googleLoading}>
-              {googleLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : (
-                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-              )}
-              Continue with Google
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-              <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or sign in with email</span></div>
-            </div>
-
             <form onSubmit={handleEmailAuth} className="space-y-3">
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input type="email" placeholder={selectedRole.demoEmail} value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 text-sm" required />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 text-sm"
+                  required
+                />
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 text-sm" required minLength={6} />
+                <Input
+                  type="password"
+                  placeholder="Password (min 6 chars)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 text-sm"
+                  required
+                  minLength={6}
+                />
               </div>
-              <Button type="submit" className="w-full gradient-primary text-primary-foreground border-0" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full gradient-primary text-primary-foreground border-0"
+                disabled={loading}
+              >
                 {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 {isSignUp ? `Create ${selectedRole.label} Account` : `Sign In as ${selectedRole.label}`}
               </Button>
             </form>
-
-            <button onClick={() => { setEmail(selectedRole.demoEmail); setPassword(selectedRole.demoPass); }} className="w-full text-xs text-center text-primary hover:underline" type="button">
-              Use demo credentials for {selectedRole.label}
-            </button>
           </div>
 
           <p className="text-xs text-center text-muted-foreground mt-4">
