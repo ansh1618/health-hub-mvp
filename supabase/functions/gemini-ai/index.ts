@@ -53,8 +53,8 @@ serve(async (req) => {
       ? `${prompt}\n\nContext (JSON):\n${JSON.stringify(body.context, null, 2)}`
       : prompt;
 
-    // Direct Google Generative Language API — gemini-1.5-flash is fast & cheap.
-    const model = "gemini-1.5-flash-latest";
+    // Direct Google Generative Language API — gemini-2.0-flash is current & fast.
+    const model = "gemini-2.0-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const upstream = await fetch(url, {
