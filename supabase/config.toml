@@ -1,1 +1,16 @@
 project_id = "bkmpnduovsjdomgurlqy"
+
+[functions.gemini-ai]
+verify_jwt = true
+
+[functions.medimind-ai]
+verify_jwt = true
+
+[functions.predict]
+verify_jwt = true
+
+[functions.patients]
+verify_jwt = true
+
+[functions.extract-record]
+verify_jwt = true
