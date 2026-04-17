@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { predictRisk, type RiskLevel } from "@/lib/riskPrediction";
 import { generateRecommendations } from "@/services/aiService";
 import { supabase } from "@/integrations/supabase/client";
+import VitalsHistoryChart from "@/components/dashboard/VitalsHistoryChart";
+import DoctorNotesPanel from "@/components/dashboard/DoctorNotesPanel";
 
 const levelStyles: Record<RiskLevel, { bg: string; text: string; ring: string }> = {
   Low: { bg: "bg-emerald-500/10", text: "text-emerald-500", ring: "ring-emerald-500/30" },

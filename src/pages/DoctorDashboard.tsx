@@ -12,6 +12,7 @@ import { patients, type RiskLevel, type Patient } from "@/data/mockPatients";
 import { useAuth } from "@/hooks/useAuth";
 import { generateRecommendations } from "@/services/aiService";
 import { useToast } from "@/hooks/use-toast";
+import LivePatientList from "@/components/dashboard/LivePatientList";
 
 export default function DoctorDashboard() {
   const [filter, setFilter] = useState<RiskLevel | "all">("all");
