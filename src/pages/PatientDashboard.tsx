@@ -194,6 +194,14 @@ export default function PatientDashboard() {
           </motion.div>
         )}
 
+        {/* History chart + doctor notes */}
+        {user && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <VitalsHistoryChart userId={user.id} />
+            <DoctorNotesPanel userId={user.id} />
+          </div>
+        )}
+
         {/* Quick actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link to="/records/upload" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40 transition flex items-start gap-3">
