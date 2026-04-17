@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Session, User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 
-type AppRole = "doctor" | "admin" | "patient";
+export type AppRole = "doctor" | "patient" | "admin";
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
+  role: AppRole | null;
   roles: AppRole[];
   loading: boolean;
   hasRole: (role: AppRole) => boolean;
@@ -16,6 +17,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
+  role: null,
   roles: [],
   loading: true,
   hasRole: () => false,
@@ -29,37 +31,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchRoles = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
-    if (data) {
-      setRoles(data.map((r) => r.role as AppRole));
+    if (error) {
+      console.error("[useAuth] failed to fetch roles", error);
+      setRoles([]);
+      return;
     }
+    setRoles((data ?? []).map((r) => r.role as AppRole));
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          // Defer role fetch to avoid deadlock
-          setTimeout(() => fetchRoles(session.user.id), 0);
-        } else {
-          setRoles([]);
-        }
-        setLoading(false);
+    // 1. Subscribe FIRST — keep callback synchronous, defer async work
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+      if (newSession?.user) {
+        setTimeout(() => fetchRoles(newSession.user.id), 0);
+      } else {
+        setRoles([]);
       }
-    );
+    });
 
-    // Then get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoles(session.user.id);
+    // 2. THEN get initial session
+    supabase.auth.getSession().then(async ({ data: { session: initial } }) => {
+      setSession(initial);
+      setUser(initial?.user ?? null);
+      if (initial?.user) {
+        await fetchRoles(initial.user.id);
       }
       setLoading(false);
     });
@@ -67,7 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const hasRole = (role: AppRole) => roles.includes(role);
+  const role: AppRole | null = roles[0] ?? null;
+  const hasRole = (r: AppRole) => roles.includes(r);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -77,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, roles, loading, hasRole, signOut }}>
+    <AuthContext.Provider value={{ session, user, role, roles, loading, hasRole, signOut }}>
       {children}
     </AuthContext.Provider>
   );
