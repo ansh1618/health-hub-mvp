@@ -53,6 +53,20 @@ export default function LivePatientList() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const { start: micStart, stop: micStop, listening, transcript, interim, supported: micSupported, reset: micReset, error: micError } =
+    useSpeechRecognition({ continuous: true });
+
+  // Append finalized speech to the note text
+  useEffect(() => {
+    if (transcript) {
+      setNoteText((prev) => (prev ? prev + " " : "") + transcript);
+      micReset();
+    }
+  }, [transcript, micReset]);
+
+  useEffect(() => {
+    if (micError) toast({ title: "Voice input", description: micError, variant: "destructive" });
+  }, [micError, toast]);
 
   const load = async () => {
     setLoading(true);
