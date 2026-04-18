@@ -279,7 +279,8 @@ export default function Reports() {
                 <h3 className="text-sm font-semibold mb-3">Key Findings</h3>
                 <div className="space-y-2">
                   {selectedReport.keyFindings.map((f, i) => {
-                    const cfg = statusConfig[f.status];
+                    const key = (f.status?.toString().toLowerCase() as keyof typeof statusConfig);
+                    const cfg = statusConfig[key] ?? statusConfig.normal;
                     const Icon = cfg.icon;
                     return (
                       <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30">
