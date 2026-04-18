@@ -113,7 +113,7 @@ export default function DoctorDashboard() {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <RiskChart />
-          <UrgencyMatrix patients={patients} onSelect={(p) => { setSelectedPatient(p); setModalOpen(true); }} />
+          <UrgencyMatrix onSelectPatient={(p) => { setSelectedPatient(p); setModalOpen(true); }} />
         </div>
 
         {/* Filter chips */}
@@ -135,8 +135,8 @@ export default function DoctorDashboard() {
 
         {/* Patient grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <PatientCard key={p.id} patient={p} onClick={() => { setSelectedPatient(p); setModalOpen(true); }} />
+          {filtered.map((p, i) => (
+            <PatientCard key={p.id} patient={p} index={i} onClick={() => { setSelectedPatient(p); setModalOpen(true); }} />
           ))}
         </div>
 
