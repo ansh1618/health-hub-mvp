@@ -131,8 +131,8 @@ function predictRisk(p: PatientInput): RiskResult {
 // 3. Gemini-powered summary & recommendations
 // ──────────────────────────────────────────────
 async function geminiInsights(patient: PatientInput, risk: RiskResult): Promise<{ summary: string; recommendations: string[] }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return { summary: "AI summary unavailable (key not configured)", recommendations: [] };
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) return { summary: "AI summary unavailable (GEMINI_API_KEY not configured)", recommendations: [] };
 
   const prompt = `You are a medical AI assistant. Given the patient data and risk assessment below, provide:
 1. A concise 2-3 sentence clinical summary of the patient's condition.
@@ -160,25 +160,25 @@ Risk Assessment:
 Respond ONLY with valid JSON: {"summary":"...","recommendations":["..."]}`;
 
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are a clinical decision-support AI. Return valid JSON only." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: "You are a clinical decision-support AI. Return valid JSON only." }] },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+        }),
+      },
+    );
 
     if (!resp.ok) {
-      console.error("Gemini error:", resp.status);
+      console.error("Gemini error:", resp.status, await resp.text());
       return { summary: "AI summary temporarily unavailable", recommendations: [] };
     }
 
     const data = await resp.json();
-    const content = data.choices?.[0]?.message?.content || "";
+    const content = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "";
     const jsonStr = content.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     return JSON.parse(jsonStr);
   } catch (e) {
