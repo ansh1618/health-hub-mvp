@@ -255,7 +255,19 @@ export default function Reports() {
                   </SelectContent>
                 </Select>
                 {translating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
-                <span className="ml-auto text-[10px] text-muted-foreground">via Gemini</span>
+                {ttsSupported && (
+                  <Button
+                    size="sm"
+                    variant={speaking ? "default" : "outline"}
+                    onClick={readAloud}
+                    className="h-8 text-xs ml-auto"
+                    aria-label={speaking ? "Stop reading aloud" : "Read aloud"}
+                  >
+                    {speaking ? <Square className="w-3.5 h-3.5 mr-1.5" /> : <Volume2 className="w-3.5 h-3.5 mr-1.5" />}
+                    {speaking ? "Stop" : "Read aloud"}
+                  </Button>
+                )}
+                <span className={`text-[10px] text-muted-foreground ${ttsSupported ? "" : "ml-auto"}`}>via Gemini</span>
               </div>
 
               <div className="rounded-xl border border-border bg-card p-5">
