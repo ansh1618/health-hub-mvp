@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, RefreshCw, Loader2, MessageSquarePlus, Send, X, HeartPulse } from "lucide-react";
+import { Users, RefreshCw, Loader2, MessageSquarePlus, Send, X, HeartPulse, Mic, MicOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 type Vitals = {
   systolicBP?: number;
