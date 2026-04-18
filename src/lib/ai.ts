@@ -12,10 +12,11 @@ export async function callAI(messages: Message[], mode: AIMode = "chat"): Promis
     body: { messages, mode },
   });
 
-  if (error) throw new Error(error.message || "AI request failed");
-  
-  if (data?.error) throw new Error(data.error);
-  
+  const backendMessage = data?.error || error?.message;
+  if (backendMessage) {
+    throw new Error(backendMessage);
+  }
+
   return data?.content || "";
 }
 
