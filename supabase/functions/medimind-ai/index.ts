@@ -44,12 +44,13 @@ serve(async (req) => {
   } catch (e: any) {
     console.error("medimind-ai error:", e);
     const status = e?.status === 429 || e?.status === 402 ? e.status : 500;
+    const retryAfter = typeof e?.retryAfterSeconds === "number" ? e.retryAfterSeconds : undefined;
     const msg = status === 429
-      ? "Gemini rate limit hit. Please wait a moment and try again."
+      ? `Google AI rate limit hit${retryAfter ? `. Retry in about ${retryAfter}s.` : ". Please wait a moment and try again."}`
       : status === 402
-        ? "Gemini quota exhausted. Check your Google AI Studio quota."
+        ? "Google AI quota exhausted. Check your Gemini quota/billing."
         : (e instanceof Error ? e.message : "Unknown error");
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: msg, retryAfter }), {
       status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
