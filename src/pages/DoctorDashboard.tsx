@@ -104,10 +104,10 @@ export default function DoctorDashboard() {
         <LivePatientList />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Patients" value={String(patients.length)} icon={Users} />
-          <StatCard label="Critical" value={String(criticalCount)} icon={AlertTriangle} accent="destructive" />
-          <StatCard label="Moderate Risk" value={String(moderateCount)} icon={Activity} accent="warning" />
-          <StatCard label="Avg MEWS" value={String(avgMEWS)} icon={BarChart3} />
+          <StatCard title="Total Patients" value={patients.length} icon={Users} />
+          <StatCard title="Critical" value={criticalCount} icon={AlertTriangle} variant="critical" />
+          <StatCard title="Moderate Risk" value={moderateCount} icon={Activity} variant="warning" />
+          <StatCard title="Avg MEWS" value={avgMEWS} icon={BarChart3} />
         </div>
 
         {/* Charts */}
