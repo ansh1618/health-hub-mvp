@@ -104,16 +104,16 @@ export default function DoctorDashboard() {
         <LivePatientList />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Patients" value={String(patients.length)} icon={Users} />
-          <StatCard label="Critical" value={String(criticalCount)} icon={AlertTriangle} accent="destructive" />
-          <StatCard label="Moderate Risk" value={String(moderateCount)} icon={Activity} accent="warning" />
-          <StatCard label="Avg MEWS" value={String(avgMEWS)} icon={BarChart3} />
+          <StatCard title="Total Patients" value={patients.length} icon={Users} />
+          <StatCard title="Critical" value={criticalCount} icon={AlertTriangle} variant="critical" />
+          <StatCard title="Moderate Risk" value={moderateCount} icon={Activity} variant="warning" />
+          <StatCard title="Avg MEWS" value={avgMEWS} icon={BarChart3} />
         </div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <RiskChart />
-          <UrgencyMatrix patients={patients} onSelect={(p) => { setSelectedPatient(p); setModalOpen(true); }} />
+          <UrgencyMatrix onSelectPatient={(p) => { setSelectedPatient(p); setModalOpen(true); }} />
         </div>
 
         {/* Filter chips */}
@@ -135,8 +135,8 @@ export default function DoctorDashboard() {
 
         {/* Patient grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <PatientCard key={p.id} patient={p} onClick={() => { setSelectedPatient(p); setModalOpen(true); }} />
+          {filtered.map((p, i) => (
+            <PatientCard key={p.id} patient={p} index={i} onClick={() => { setSelectedPatient(p); setModalOpen(true); }} />
           ))}
         </div>
 
