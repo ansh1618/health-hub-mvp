@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Stethoscope, Send, Loader2, AlertTriangle, CheckCircle, Info, Zap } from "lucide-react";
+import { Stethoscope, Send, Loader2, AlertTriangle, CheckCircle, Info, Zap, Mic, MicOff, Volume2, Square } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { callAI } from "@/lib/ai";
 import { useToast } from "@/hooks/use-toast";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 
 interface DiagnosisResult {
   diseases: { name: string; probability: number; severity: "High" | "Moderate" | "Low" }[];
@@ -31,6 +33,30 @@ export default function Diagnosis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const { toast } = useToast();
+  const stt = useSpeechRecognition({ lang: "en-US", continuous: true });
+  const tts = useSpeechSynthesis();
+
+  useEffect(() => {
+    if (stt.transcript) {
+      setSymptoms((prev) => (prev ? prev + " " : "") + stt.transcript);
+      stt.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stt.transcript]);
+
+  const toggleDictate = () => {
+    if (stt.listening) stt.stop();
+    else stt.start();
+  };
+
+  const readAloudResult = () => {
+    if (!result) return;
+    if (tts.speaking) { tts.stop(); return; }
+    const diseases = result.diseases.map((d) => `${d.name}, ${d.severity} severity, ${d.probability} percent probability`).join(". ");
+    const recs = result.recommendations.join(". ");
+    const text = `Analysis confidence ${result.confidence} percent. Probable conditions: ${diseases}. Recommended actions: ${recs}.`;
+    tts.speak(text, "English");
+  };
 
   const handleSubmit = async () => {
     if (!symptoms.trim()) return;
@@ -86,20 +112,29 @@ export default function Diagnosis() {
         <div className="rounded-xl border border-border bg-card p-5">
           <Textarea
             placeholder="e.g., Patient presents with severe chest pain radiating to left arm, shortness of breath, diaphoresis..."
-            value={symptoms}
+            value={symptoms + (stt.interim ? " " + stt.interim : "")}
             onChange={(e) => setSymptoms(e.target.value)}
             className="min-h-[120px] resize-none border-0 bg-transparent p-0 text-sm focus-visible:ring-0 placeholder:text-muted-foreground/50"
           />
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               <Info className="w-3 h-3 inline mr-1" />
               AI-assisted — not a replacement for clinical judgment
             </p>
-            <Button onClick={handleSubmit} disabled={!symptoms.trim() || loading} className="gradient-primary text-primary-foreground border-0 text-xs px-4" size="sm">
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-              Analyze
-            </Button>
+            <div className="flex items-center gap-2">
+              {stt.supported && (
+                <Button type="button" onClick={toggleDictate} variant={stt.listening ? "destructive" : "outline"} size="sm" className="text-xs px-3">
+                  {stt.listening ? <MicOff className="w-3.5 h-3.5 mr-1.5" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
+                  {stt.listening ? "Stop" : "Dictate"}
+                </Button>
+              )}
+              <Button onClick={handleSubmit} disabled={!symptoms.trim() || loading} className="gradient-primary text-primary-foreground border-0 text-xs px-4" size="sm">
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+                Analyze
+              </Button>
+            </div>
           </div>
+          {stt.error && <p className="text-xs text-destructive mt-2">{stt.error}</p>}
         </div>
 
         {/* Loading */}
@@ -134,6 +169,16 @@ export default function Diagnosis() {
                   />
                 </div>
               </div>
+
+              {/* Read aloud */}
+              {tts.supported && (
+                <div className="flex justify-end">
+                  <Button onClick={readAloudResult} variant="outline" size="sm" className="text-xs">
+                    {tts.speaking ? <Square className="w-3.5 h-3.5 mr-1.5" /> : <Volume2 className="w-3.5 h-3.5 mr-1.5" />}
+                    {tts.speaking ? "Stop reading" : "Read aloud"}
+                  </Button>
+                </div>
+              )}
 
               {/* Diseases */}
               <div className="rounded-xl border border-border bg-card p-5">
