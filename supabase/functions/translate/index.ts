@@ -1,6 +1,6 @@
-// Gemini-powered translator for medical text.
-// Accepts { text, target_language } and returns { translated_text }.
+// Gemini-powered translator (direct Google API).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { geminiGenerate } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,48 +19,21 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a professional medical translator. Translate the user's text into ${target_language}. Keep medical terms accurate. Preserve any JSON structure if present (translate values, not keys). Return ONLY the translated text, no explanations.`,
-          },
-          { role: "user", content: text },
-        ],
-      }),
-    });
-
-    if (!upstream.ok) {
-      if (upstream.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again shortly." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (upstream.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`Translation AI error (${upstream.status})`);
-    }
-
-    const data = await upstream.json();
-    const translated_text = data.choices?.[0]?.message?.content ?? "";
+    const translated_text = await geminiGenerate(
+      [{ role: "user", content: text }],
+      {
+        systemInstruction: `You are a professional medical translator. Translate the user's text into ${target_language}. Keep medical terms accurate. Preserve any JSON structure if present (translate values, not keys). Return ONLY the translated text, no explanations.`,
+      },
+    );
 
     return new Response(JSON.stringify({ translated_text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("translate error:", e);
+    const status = e?.status === 429 || e?.status === 402 ? e.status : 500;
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Translation failed" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

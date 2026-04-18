@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Loader2, CheckCircle, AlertTriangle, FileUp, X, Beaker, Languages } from "lucide-react";
+import { FileText, Loader2, CheckCircle, AlertTriangle, FileUp, X, Beaker, Languages, Volume2, Square } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { callAI } from "@/lib/ai";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 
 const LANGUAGES = [
   { code: "English", label: "🇬🇧 English" },
@@ -80,6 +81,16 @@ export default function Reports() {
   const [fileName, setFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { speak, stop, speaking, supported: ttsSupported } = useSpeechSynthesis();
+
+  const readAloud = () => {
+    if (!selectedReport) return;
+    if (speaking) return stop();
+    const text = `${selectedReport.title}. ${selectedReport.summary}. Key findings: ${selectedReport.keyFindings
+      .map((f) => `${f.finding}, status ${f.status}`)
+      .join(". ")}. Plain language explanation: ${selectedReport.simplifiedExplanation}`;
+    speak(text, language);
+  };
 
   const translateReport = async (target: string) => {
     setLanguage(target);
@@ -244,7 +255,19 @@ export default function Reports() {
                   </SelectContent>
                 </Select>
                 {translating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
-                <span className="ml-auto text-[10px] text-muted-foreground">via Gemini</span>
+                {ttsSupported && (
+                  <Button
+                    size="sm"
+                    variant={speaking ? "default" : "outline"}
+                    onClick={readAloud}
+                    className="h-8 text-xs ml-auto"
+                    aria-label={speaking ? "Stop reading aloud" : "Read aloud"}
+                  >
+                    {speaking ? <Square className="w-3.5 h-3.5 mr-1.5" /> : <Volume2 className="w-3.5 h-3.5 mr-1.5" />}
+                    {speaking ? "Stop" : "Read aloud"}
+                  </Button>
+                )}
+                <span className={`text-[10px] text-muted-foreground ${ttsSupported ? "" : "ml-auto"}`}>via Gemini</span>
               </div>
 
               <div className="rounded-xl border border-border bg-card p-5">

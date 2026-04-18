@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, RefreshCw, Loader2, MessageSquarePlus, Send, X, HeartPulse } from "lucide-react";
+import { Users, RefreshCw, Loader2, MessageSquarePlus, Send, X, HeartPulse, Mic, MicOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 type Vitals = {
   systolicBP?: number;
@@ -52,6 +53,20 @@ export default function LivePatientList() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const { start: micStart, stop: micStop, listening, transcript, interim, supported: micSupported, reset: micReset, error: micError } =
+    useSpeechRecognition({ continuous: true });
+
+  // Append finalized speech to the note text
+  useEffect(() => {
+    if (transcript) {
+      setNoteText((prev) => (prev ? prev + " " : "") + transcript);
+      micReset();
+    }
+  }, [transcript, micReset]);
+
+  useEffect(() => {
+    if (micError) toast({ title: "Voice input", description: micError, variant: "destructive" });
+  }, [micError, toast]);
 
   const load = async () => {
     setLoading(true);
@@ -215,12 +230,28 @@ export default function LivePatientList() {
             </div>
 
             <div className="mb-3">
-              <p className="text-xs font-semibold mb-2">Add clinical note</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold">Add clinical note</p>
+                {micSupported && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={listening ? "default" : "outline"}
+                    onClick={() => (listening ? micStop() : micStart())}
+                    disabled={!active.linked_patient_user_id}
+                    className={`h-7 text-[11px] ${listening ? "animate-pulse" : ""}`}
+                    aria-label={listening ? "Stop dictation" : "Start voice dictation"}
+                  >
+                    {listening ? <MicOff className="w-3 h-3 mr-1" /> : <Mic className="w-3 h-3 mr-1" />}
+                    {listening ? "Stop dictation" : "Dictate"}
+                  </Button>
+                )}
+              </div>
               <Textarea
-                value={noteText}
+                value={noteText + (interim ? ` ${interim}` : "")}
                 onChange={(e) => setNoteText(e.target.value)}
-                placeholder="e.g. BP trending down. Continue current meds, recheck in 48h."
-                className="text-sm min-h-[80px]"
+                placeholder={listening ? "Listening… speak your note" : "e.g. BP trending down. Continue current meds, recheck in 48h."}
+                className={`text-sm min-h-[80px] ${listening ? "border-primary/60 ring-2 ring-primary/20" : ""}`}
                 disabled={!active.linked_patient_user_id}
               />
               {!active.linked_patient_user_id && (
