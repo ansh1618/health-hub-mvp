@@ -227,10 +227,27 @@ export async function geminiStream(
   messages: Array<{ role: string; content: any }>,
   opts: GeminiOptions = {},
 ): Promise<ReadableStream<Uint8Array>> {
-  const resp = await fetchWithModelFallback("streamGenerateContent?alt=sse", messages, opts);
-  if (!resp.body) {
-    throw Object.assign(new Error("Gemini stream response missing body"), { status: 500 });
+  let resp: Response;
+  let useGateway = false;
+
+  try {
+    resp = await fetchDirectGemini("streamGenerateContent?alt=sse", messages, opts);
+  } catch (e: any) {
+    if (e?.status === 429 || e?.status === 503 || e?.status === 404) {
+      console.warn("[gemini stream] direct quota/model issue, falling back to Lovable AI Gateway");
+      resp = await fetchLovableGateway(true, messages, opts);
+      useGateway = true;
+    } else {
+      throw e;
+    }
   }
+
+  if (!resp.body) {
+    throw Object.assign(new Error("Stream response missing body"), { status: 500 });
+  }
+
+  // Lovable AI Gateway already returns OpenAI-compatible SSE — pipe through unchanged.
+  if (useGateway) return resp.body;
 
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
