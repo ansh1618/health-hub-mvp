@@ -167,13 +167,33 @@ export default function Diagnosis() {
           {stt.error && <p className="text-xs text-destructive mt-2">{stt.error}</p>}
         </div>
 
-        {/* Loading */}
+        {/* Loading skeleton */}
         <AnimatePresence>
           {loading && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl border border-border bg-card p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-              <p className="text-sm font-medium">Running differential diagnosis...</p>
-              <p className="text-xs text-muted-foreground mt-1">Analyzing symptoms against clinical knowledge base</p>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="space-y-4">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-5 w-12" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-40" />
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-2 w-2 rounded-full" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Gemini is analyzing symptoms against clinical knowledge…
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
