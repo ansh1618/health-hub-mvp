@@ -1,8 +1,12 @@
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 export const DEFAULT_MODEL = "gemini-2.5-flash";
-export const FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-1.5-flash"];
+export const FALLBACK_MODELS = ["gemini-2.5-flash-lite"];
 export const VISION_MODEL = "gemini-2.5-flash";
+
+// Lovable AI Gateway model used when direct Gemini quota is exhausted.
+const LOVABLE_FALLBACK_MODEL = "google/gemini-2.5-flash";
 
 export interface GeminiPart {
   text?: string;
@@ -99,7 +103,7 @@ async function readGeminiError(resp: Response) {
   return error;
 }
 
-async function fetchWithModelFallback(
+async function fetchDirectGemini(
   endpoint: "generateContent" | "streamGenerateContent?alt=sse",
   messages: Array<{ role: string; content: any }>,
   opts: GeminiOptions = {},
@@ -132,24 +136,118 @@ async function fetchWithModelFallback(
   throw lastError ?? Object.assign(new Error("Gemini request failed"), { status: 500 });
 }
 
+/**
+ * Convert our internal message shape to OpenAI-compatible messages
+ * for the Lovable AI Gateway fallback.
+ */
+function toOpenAIMessages(
+  messages: Array<{ role: string; content: any }>,
+  systemInstruction?: string,
+) {
+  const out: Array<{ role: string; content: any }> = [];
+  if (systemInstruction) out.push({ role: "system", content: systemInstruction });
+  for (const m of messages) {
+    out.push({
+      role: m.role === "model" ? "assistant" : m.role,
+      content: m.content,
+    });
+  }
+  return out;
+}
+
+async function fetchLovableGateway(
+  stream: boolean,
+  messages: Array<{ role: string; content: any }>,
+  opts: GeminiOptions = {},
+): Promise<Response> {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableKey) {
+    throw Object.assign(new Error("Lovable AI fallback unavailable (LOVABLE_API_KEY missing)"), { status: 500 });
+  }
+
+  const sysParts: string[] = [];
+  if (opts.systemInstruction) sysParts.push(opts.systemInstruction);
+  // Pull system messages out of `messages` if present
+  const filtered: Array<{ role: string; content: any }> = [];
+  for (const m of messages) {
+    if (m.role === "system" && typeof m.content === "string") sysParts.push(m.content);
+    else filtered.push(m);
+  }
+  const sys = sysParts.join("\n\n") || undefined;
+
+  const body = {
+    model: LOVABLE_FALLBACK_MODEL,
+    messages: toOpenAIMessages(filtered, sys),
+    stream,
+    temperature: typeof opts.temperature === "number" ? opts.temperature : 0.2,
+  };
+
+  const resp = await fetch(LOVABLE_GATEWAY, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    console.error("[lovable-gateway] error", resp.status, errText.slice(0, 300));
+    throw Object.assign(
+      new Error(`Lovable AI Gateway error (${resp.status}): ${errText.slice(0, 200)}`),
+      { status: resp.status, raw: errText },
+    );
+  }
+
+  return resp;
+}
+
 export async function geminiGenerate(
   messages: Array<{ role: string; content: any }>,
   opts: GeminiOptions = {},
 ): Promise<string> {
-  const resp = await fetchWithModelFallback("generateContent", messages, opts);
-  const data = await resp.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join("") ?? "";
-  return text;
+  try {
+    const resp = await fetchDirectGemini("generateContent", messages, opts);
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join("") ?? "";
+    return text;
+  } catch (e: any) {
+    if (e?.status === 429 || e?.status === 503 || e?.status === 404) {
+      console.warn("[gemini] direct quota/model issue, falling back to Lovable AI Gateway");
+      const resp = await fetchLovableGateway(false, messages, opts);
+      const data = await resp.json();
+      return data?.choices?.[0]?.message?.content ?? "";
+    }
+    throw e;
+  }
 }
 
 export async function geminiStream(
   messages: Array<{ role: string; content: any }>,
   opts: GeminiOptions = {},
 ): Promise<ReadableStream<Uint8Array>> {
-  const resp = await fetchWithModelFallback("streamGenerateContent?alt=sse", messages, opts);
-  if (!resp.body) {
-    throw Object.assign(new Error("Gemini stream response missing body"), { status: 500 });
+  let resp: Response;
+  let useGateway = false;
+
+  try {
+    resp = await fetchDirectGemini("streamGenerateContent?alt=sse", messages, opts);
+  } catch (e: any) {
+    if (e?.status === 429 || e?.status === 503 || e?.status === 404) {
+      console.warn("[gemini stream] direct quota/model issue, falling back to Lovable AI Gateway");
+      resp = await fetchLovableGateway(true, messages, opts);
+      useGateway = true;
+    } else {
+      throw e;
+    }
   }
+
+  if (!resp.body) {
+    throw Object.assign(new Error("Stream response missing body"), { status: 500 });
+  }
+
+  // Lovable AI Gateway already returns OpenAI-compatible SSE — pipe through unchanged.
+  if (useGateway) return resp.body;
 
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
