@@ -78,8 +78,9 @@ export default function Diagnosis() {
     if (!result) return;
     if (tts.speaking) { tts.stop(); return; }
     const diseases = result.diseases.map((d) => `${d.name}, ${d.severity} severity, ${d.probability} percent probability`).join(". ");
+    const risks = (result.riskFactors ?? []).map((r) => `${r.factor} ${r.value}, ${r.level}: ${r.reason}`).join(". ");
     const recs = result.recommendations.join(". ");
-    const text = `Analysis confidence ${result.confidence} percent. Probable conditions: ${diseases}. Recommended actions: ${recs}.`;
+    const text = `Analysis confidence ${result.confidence} percent. Probable conditions: ${diseases}. ${risks ? `Key risk factors: ${risks}. ` : ""}Recommended actions: ${recs}.`;
     tts.speak(text, "English");
   };
 
