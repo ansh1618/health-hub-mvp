@@ -251,6 +251,40 @@ export default function Diagnosis() {
                 </div>
               </div>
 
+              {/* Risk factors — WHY this risk */}
+              {result.riskFactors && result.riskFactors.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="text-sm font-semibold mb-1 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                    Why this risk?
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">Key factors driving the assessment</p>
+                  <div className="space-y-2">
+                    {result.riskFactors.map((r, i) => (
+                      <motion.div
+                        key={r.factor + i}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.08 }}
+                        className="p-3 rounded-lg bg-muted/30 border border-border/50"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${riskLevelDot[r.level]}`} />
+                            <span className="text-sm font-medium truncate">{r.factor}</span>
+                            <span className="text-xs text-muted-foreground truncate">{r.value}</span>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${riskLevelStyles[r.level]}`}>
+                            {r.level}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-4">{r.reason}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Recommendations */}
               <div className="rounded-xl border border-border bg-card p-5">
                 <h3 className="text-sm font-semibold mb-3">Recommended Actions</h3>
