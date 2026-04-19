@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Stethoscope, Send, Loader2, AlertTriangle, CheckCircle, Info, Zap, Mic, MicOff, Volume2, Square } from "lucide-react";
+import { Stethoscope, Send, Loader2, AlertTriangle, CheckCircle, Info, Zap, Mic, MicOff, Volume2, Square, Languages, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { callAI } from "@/lib/ai";
 import { useToast } from "@/hooks/use-toast";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 
+interface RiskFactor {
+  factor: string;
+  value: string;
+  level: "Very High" | "High" | "Moderate" | "Low" | "Normal";
+  reason: string;
+}
+
 interface DiagnosisResult {
   diseases: { name: string; probability: number; severity: "High" | "Moderate" | "Low" }[];
+  riskFactors?: RiskFactor[];
   recommendations: string[];
   confidence: number;
 }
@@ -19,6 +28,22 @@ const severityStyles = {
   High: "bg-destructive/10 text-destructive border-destructive/20",
   Moderate: "bg-orange-500/10 text-orange-500 border-orange-500/20",
   Low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+};
+
+const riskLevelStyles: Record<RiskFactor["level"], string> = {
+  "Very High": "bg-destructive/15 text-destructive border-destructive/30",
+  High: "bg-destructive/10 text-destructive border-destructive/20",
+  Moderate: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  Low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  Normal: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+};
+
+const riskLevelDot: Record<RiskFactor["level"], string> = {
+  "Very High": "bg-destructive",
+  High: "bg-destructive",
+  Moderate: "bg-orange-500",
+  Low: "bg-emerald-500",
+  Normal: "bg-emerald-500",
 };
 
 const symptomTemplates = [
@@ -53,8 +78,9 @@ export default function Diagnosis() {
     if (!result) return;
     if (tts.speaking) { tts.stop(); return; }
     const diseases = result.diseases.map((d) => `${d.name}, ${d.severity} severity, ${d.probability} percent probability`).join(". ");
+    const risks = (result.riskFactors ?? []).map((r) => `${r.factor} ${r.value}, ${r.level}: ${r.reason}`).join(". ");
     const recs = result.recommendations.join(". ");
-    const text = `Analysis confidence ${result.confidence} percent. Probable conditions: ${diseases}. Recommended actions: ${recs}.`;
+    const text = `Analysis confidence ${result.confidence} percent. Probable conditions: ${diseases}. ${risks ? `Key risk factors: ${risks}. ` : ""}Recommended actions: ${recs}.`;
     tts.speak(text, "English");
   };
 
@@ -90,6 +116,10 @@ export default function Diagnosis() {
             <div>
               <h1 className="text-xl font-bold tracking-tight">AI Diagnosis Assistant</h1>
               <p className="text-sm text-muted-foreground">Describe patient symptoms for AI-powered differential diagnosis</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5 flex items-center gap-1">
+                <Languages className="w-3 h-3" />
+                Powered by Google Gemini · Supports multilingual clinical understanding
+              </p>
             </div>
           </div>
         </motion.div>
@@ -137,13 +167,33 @@ export default function Diagnosis() {
           {stt.error && <p className="text-xs text-destructive mt-2">{stt.error}</p>}
         </div>
 
-        {/* Loading */}
+        {/* Loading skeleton */}
         <AnimatePresence>
           {loading && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="rounded-xl border border-border bg-card p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-              <p className="text-sm font-medium">Running differential diagnosis...</p>
-              <p className="text-xs text-muted-foreground mt-1">Analyzing symptoms against clinical knowledge base</p>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="space-y-4">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-5 w-12" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-40" />
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-2 w-2 rounded-full" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Gemini is analyzing symptoms against clinical knowledge…
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -200,6 +250,40 @@ export default function Diagnosis() {
                   ))}
                 </div>
               </div>
+
+              {/* Risk factors — WHY this risk */}
+              {result.riskFactors && result.riskFactors.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="text-sm font-semibold mb-1 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                    Why this risk?
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">Key factors driving the assessment</p>
+                  <div className="space-y-2">
+                    {result.riskFactors.map((r, i) => (
+                      <motion.div
+                        key={r.factor + i}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.08 }}
+                        className="p-3 rounded-lg bg-muted/30 border border-border/50"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${riskLevelDot[r.level]}`} />
+                            <span className="text-sm font-medium truncate">{r.factor}</span>
+                            <span className="text-xs text-muted-foreground truncate">{r.value}</span>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${riskLevelStyles[r.level]}`}>
+                            {r.level}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-4">{r.reason}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Recommendations */}
               <div className="rounded-xl border border-border bg-card p-5">
