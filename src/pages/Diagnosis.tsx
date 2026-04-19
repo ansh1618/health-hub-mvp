@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Stethoscope, Send, Loader2, AlertTriangle, CheckCircle, Info, Zap, Mic, MicOff, Volume2, Square } from "lucide-react";
+import { Stethoscope, Send, Loader2, AlertTriangle, CheckCircle, Info, Zap, Mic, MicOff, Volume2, Square, Languages, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { callAI } from "@/lib/ai";
 import { useToast } from "@/hooks/use-toast";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 
+interface RiskFactor {
+  factor: string;
+  value: string;
+  level: "Very High" | "High" | "Moderate" | "Low" | "Normal";
+  reason: string;
+}
+
 interface DiagnosisResult {
   diseases: { name: string; probability: number; severity: "High" | "Moderate" | "Low" }[];
+  riskFactors?: RiskFactor[];
   recommendations: string[];
   confidence: number;
 }
@@ -19,6 +28,22 @@ const severityStyles = {
   High: "bg-destructive/10 text-destructive border-destructive/20",
   Moderate: "bg-orange-500/10 text-orange-500 border-orange-500/20",
   Low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+};
+
+const riskLevelStyles: Record<RiskFactor["level"], string> = {
+  "Very High": "bg-destructive/15 text-destructive border-destructive/30",
+  High: "bg-destructive/10 text-destructive border-destructive/20",
+  Moderate: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  Low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  Normal: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+};
+
+const riskLevelDot: Record<RiskFactor["level"], string> = {
+  "Very High": "bg-destructive",
+  High: "bg-destructive",
+  Moderate: "bg-orange-500",
+  Low: "bg-emerald-500",
+  Normal: "bg-emerald-500",
 };
 
 const symptomTemplates = [
