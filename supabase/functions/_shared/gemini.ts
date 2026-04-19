@@ -1,8 +1,12 @@
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 export const DEFAULT_MODEL = "gemini-2.5-flash";
-export const FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-1.5-flash"];
+export const FALLBACK_MODELS = ["gemini-2.5-flash-lite"];
 export const VISION_MODEL = "gemini-2.5-flash";
+
+// Lovable AI Gateway model used when direct Gemini quota is exhausted.
+const LOVABLE_FALLBACK_MODEL = "google/gemini-2.5-flash";
 
 export interface GeminiPart {
   text?: string;
