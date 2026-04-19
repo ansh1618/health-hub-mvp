@@ -116,6 +116,10 @@ export default function Diagnosis() {
             <div>
               <h1 className="text-xl font-bold tracking-tight">AI Diagnosis Assistant</h1>
               <p className="text-sm text-muted-foreground">Describe patient symptoms for AI-powered differential diagnosis</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-0.5 flex items-center gap-1">
+                <Languages className="w-3 h-3" />
+                Powered by Google Gemini · Supports multilingual clinical understanding
+              </p>
             </div>
           </div>
         </motion.div>
